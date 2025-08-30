@@ -62,8 +62,7 @@ const StaffManagementDashboard = () => {
   });
   
   const [newManager, setNewManager] = useState({
-  firstName: '',
-  lastName: '',
+  fullName: '',
   phone: '',
   mail: '',
   department: '',
@@ -80,8 +79,8 @@ const StaffManagementDashboard = () => {
   });
   
   const [newDepartment, setNewDepartment] = useState({
-    departmentName: ''
-  });
+  name: ''
+    });
 
   // Sample data
   const managers = [
@@ -90,43 +89,37 @@ const StaffManagementDashboard = () => {
     { id: 3, name: 'Mike Johnson', phone: '+91 98765 43212', department: 'Product Dev', team: 'Dev Team', joinedOn: '29/11/22', email: 'mike@company.com', status: 'Active' },
   ];
   
-  const departments = ['Sales', 'Support', 'Innovative Strategies', 'Creative Solutions'];
+  const [departments, setDepartments] = useState([]);
 
-  useEffect(() => {
-    if (currentView !== 'login') {
-      loadData();
-    }
-  }, [currentView]);
+const loadData = async () => {
+  setLoading(true);
+  setError(null);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      if (currentView === 'staff' || currentView === 'dashboard') {
-        const staffResponse = await API.get('staff/');
-        setStaffData(staffResponse || []);
-      }
-      
-      if (currentView === 'customers' || currentView === 'dashboard') {
-        const customerResponse = await API.get('customers/');
-        setCustomers(customerResponse || []);
-      }
-    } catch (err) {
-      setError('Failed to load data. Using demo data.');
-      // Fallback to demo data
-      setStaffData([
-        { id: 'STF001', name: 'John Doe', manager: 'Nestal Cruig', skill: 'JavaScript', phone: '+91 99999 11111', joinedOn: '2023-01-15', email: 'john@company.com', status: 'Active' },
-        { id: 'STF002', name: 'Jane Smith', manager: 'Mike Johnson', skill: 'Python', phone: '+91 99999 22222', joinedOn: '2023-02-10', email: 'jane.smith@company.com', status: 'Active' }
-      ]);
-      setCustomers([
-        { id: 'CUST001', name: 'Alice Johnson', phone: '+91 88888 11111', gender: 'Female', addedOn: '2023-03-01', email: 'alice@email.com', status: 'New' },
-        { id: 'CUST002', name: 'Bob Wilson', phone: '+91 88888 22222', gender: 'Male', addedOn: '2023-03-02', email: 'bob@email.com', status: 'Complete' }
-      ]);
-    } finally {
-      setLoading(false);
+  try {
+    if (currentView === 'staff' || currentView === 'dashboard') {
+      const staffResponse = await API.get('staff/');
+      setStaffData(staffResponse || []);
     }
-  };
+
+    if (currentView === 'customers' || currentView === 'dashboard') {
+      const customerResponse = await API.get('customers/');
+      setCustomers(customerResponse || []);
+    }
+
+    if (currentView === 'departments' || currentView === 'dashboard' || currentView === 'managers') {
+      const deptResponse = await API.get('departments/');
+      setDepartments(deptResponse || []);
+    }
+  } catch (err) {
+    setError('Failed to load data. Using demo data.');
+    setDepartments([
+      { id: 1, name: 'Sales' },
+      { id: 2, name: 'Support' }
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleLogin = async () => {
     if (!credentials.username || !credentials.password) {
@@ -680,24 +673,34 @@ const StaffManagementDashboard = () => {
             Cancel
           </button>
           <button
-            onClick={async() => {
-              console.log("New staff data:", newStaff);
+            onClick={async () => {
+              const [firstName, lastName] = (newStaff.fullName || "").split(" ");
+              const payload = {
+                first_name: firstName || "",
+                last_name: lastName || "",
+                email: newStaff.mail,
+                phone: newStaff.phone,
+                manager: newStaff.manager,   // Must be manager ID
+                skill: newStaff.skills,
+                status: "active"
+              };
+
               try {
-                  await API.post('staff/', newStaff);
-                  alert('Staff added successfully!');
-                  loadData(); // Refresh the data
-                } catch (err) {
-                  alert('Error adding staff: ' + err.message);
-            }
+                await API.post("staff/", payload);
+                alert("Staff added successfully!");
+                loadData();
+              } catch (err) {
+                alert("Error adding staff: " + err.message);
+              }
+
               setNewStaff({
-                fullName: '',
-                phone: '',
-                mail: '',
-                skills: '',
-                manager: ''
+                fullName: "",
+                phone: "",
+                mail: "",
+                skills: "",
+                manager: ""
               });
               setShowAddStaffForm(false);
-              alert('Staff added successfully!');
             }}
             className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
           >
@@ -757,17 +760,18 @@ const StaffManagementDashboard = () => {
             <label className="block text-sm font-medium mb-1">Department</label>
             <select
               value={newManager.department}
-              onChange={(e) => setNewManager({...newManager, department: e.target.value})}
+              onChange={(e) => setNewManager({ ...newManager, department: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a department</option>
-              {departments.map((dept, index) => (
-                <option key={index} value={dept}>
-                  {dept}
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
                 </option>
               ))}
             </select>
           </div>
+
           
           <div>
             <label className="block text-sm font-medium mb-1">Team</label>
@@ -789,31 +793,31 @@ const StaffManagementDashboard = () => {
             Cancel
           </button>
           <button
-            onClick={async() => {
-              const [firstName, lastName] = (newManager.fullName || '').split(' ');
+            onClick={async () => {
+              const [firstName, lastName] = (newManager.fullName || "").split(" ");
               const payload = {
-                  first_name: firstName || '',
-                  last_name: lastName || '',
-                  email: newManager.mail,
-                  department: newManager.department, // ID of department
-                  team: newManager.team
-                };
-              console.log("New manager data:", newManager);
-              console.log(localStorage.getItem('access'));
-              console.log("Sending manager data:", payload);
+                first_name: firstName || "",
+                last_name: lastName || "",
+                email: newManager.mail,
+                department: parseInt(newManager.department), // ✅ Use ID
+                team: newManager.team,
+                status: "active"
+              };
+
               try {
-                  await API.post('managers/', payload);
-                  alert('Manager added successfully!');
-                  loadData(); // Refresh the data
-                } catch (err) {
-                  alert('Error adding manager: ' + err.message);
-            }
+                await API.post("managers/", payload);
+                alert("Manager added successfully!");
+                loadData();
+              } catch (err) {
+                alert("Error adding manager: " + err.message);
+              }
+
               setNewManager({
-                firstName: '',
-                lastName: '',
-                mail: '',
-                department: '',
-                team: ''
+                fullName: "",
+                phone: "",
+                mail: "",
+                department: "",
+                team: ""
               });
               setShowAddManagerForm(false);
             }}
@@ -1011,6 +1015,6 @@ const StaffManagementDashboard = () => {
       {showAddDepartmentForm && renderAddDepartmentForm()}
     </div>
   );
-};
+};  
 
 export default StaffManagementDashboard;
